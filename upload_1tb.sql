@@ -9,10 +9,10 @@ SET ECHO ON
 
 DECLARE
   v_payload_seed VARCHAR2(1000);
-  -- OPTIMIZED: 10 chunks per partition (2M rows each) to reduce commit overhead
-  v_chunks_per_part NUMBER := 10; 
-  -- 20M rows divided into 2M row execution chunks (faster, fewer commits)
-  v_rows_per_chunk  NUMBER := 20000000 / 10; 
+  -- ULTRA-OPTIMIZED: 5 chunks per partition (4M rows each) for maximum throughput
+  v_chunks_per_part NUMBER := 5; 
+  -- 20M rows divided into 4M row execution chunks (ultra-fast, minimal commits)
+  v_rows_per_chunk  NUMBER := 20000000 / 5; 
   v_sql              VARCHAR2(2000);
   v_part_lo         NUMBER := &1;
   v_part_hi         NUMBER := &2;
@@ -35,9 +35,9 @@ BEGIN
 
     FOR c_idx IN 0..(v_chunks_per_part - 1) LOOP
       -- Direct-path insertion layout streaming data straight to datafiles
-      -- OPTIMIZED: PARALLEL(16) leverages 24G Oracle allocation with 6G PGA headroom
-      v_sql := 'INSERT /*+ APPEND PARALLEL(16) */ INTO ' || v_table || ' PARTITION (' || r.partition_name || ') (id, payload) ' ||
-               'SELECT /*+ PARALLEL(16) */ ' ||
+      -- ULTRA-OPTIMIZED: PARALLEL(24) for 8 CPUs with 12GB free RAM headroom
+      v_sql := 'INSERT /*+ APPEND PARALLEL(24) */ INTO ' || v_table || ' PARTITION (' || r.partition_name || ') (id, payload) ' ||
+               'SELECT /*+ PARALLEL(24) */ ' ||
                '(((' || (r.partition_position - 1) || ') * ' || v_rows_per_part || ') + (' || (c_idx * v_rows_per_chunk) || ') + rownum - 1), ' ||
                ':seed || TO_CHAR(rownum, ''FM00000000'') ' ||
                'FROM dual CONNECT BY level <= :chunk_size';

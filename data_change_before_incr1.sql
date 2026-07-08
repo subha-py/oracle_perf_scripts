@@ -4,14 +4,14 @@ SET ECHO ON
 
 DECLARE
   v_payload_seed   VARCHAR2(1000);
-  v_rows_per_chunk NUMBER := 2000000;       -- OPTIMIZED: 2M chunks to reduce commits per partition
+  v_rows_per_chunk NUMBER := 4000000;       -- ULTRA-OPTIMIZED: 4M chunks to reduce commits per partition
   v_part_lo        NUMBER := 1;             -- <-- change for slice 2/3/4
   v_part_hi        NUMBER := 5;             -- <-- change for slice 2/3/4
   v_redo_pre       NUMBER;
   v_redo_post      NUMBER;
   -- NEW: Scaled variables for 1TB layout
   v_rows_per_part  NUMBER := 20000000;      -- 20M rows per partition
-  v_chunks_per_part NUMBER := 10;           -- OPTIMIZED: 10 chunks (2M rows each) instead of 20
+  v_chunks_per_part NUMBER := 5;            -- ULTRA-OPTIMIZED: 5 chunks (4M rows each)
 BEGIN
   EXECUTE IMMEDIATE 'ALTER SESSION ENABLE PARALLEL DML';
   EXECUTE IMMEDIATE 'ALTER SESSION SET PARALLEL_FORCE_LOCAL = TRUE';
@@ -30,11 +30,11 @@ BEGIN
     EXECUTE IMMEDIATE 'ALTER TABLE SYS.BIG_PERF_23 TRUNCATE PARTITION ' || r.partition_name;
     DBMS_OUTPUT.PUT_LINE(TO_CHAR(SYSDATE,'HH24:MI:SS') || ' TRUNCATED ' || r.partition_name);
 
-    -- OPTIMIZED: 10 chunks (2M rows each) instead of 20 chunks (1M rows) to reduce commits + PARALLEL(16)
-    FOR c_idx IN 0..9 LOOP
+    -- ULTRA-OPTIMIZED: 5 chunks (4M rows each) instead of 10 chunks (2M rows) to reduce commits + PARALLEL(24)
+    FOR c_idx IN 0..4 LOOP
       EXECUTE IMMEDIATE
-        'INSERT /*+ APPEND PARALLEL(16) */ INTO SYS.BIG_PERF_23 PARTITION (' || r.partition_name || ') (id, payload) ' ||
-        'SELECT /*+ PARALLEL(16) */ ' ||
+        'INSERT /*+ APPEND PARALLEL(24) */ INTO SYS.BIG_PERF_23 PARTITION (' || r.partition_name || ') (id, payload) ' ||
+        'SELECT /*+ PARALLEL(24) */ ' ||
         -- MODIFIED: Replaced 10000000 with v_rows_per_part (20000000) for pristine ID alignment
         '(((' || (r.partition_position - 1) || ') * ' || v_rows_per_part || ') + (' || (c_idx * v_rows_per_chunk) || ') + ROWNUM - 1), :seed || TO_CHAR(ROWNUM, ''FM00000000'') ' ||
         'FROM dual CONNECT BY level <= :chunk_size'

@@ -42,7 +42,10 @@ PROMPT === Setting PGA (takes effect immediately) ===
 ALTER SYSTEM SET PGA_AGGREGATE_TARGET = 6G  SCOPE=BOTH;
 ALTER SYSTEM SET PGA_AGGREGATE_LIMIT  = 12G SCOPE=BOTH;
 
-PROMPT === Restart required for SGA changes to take effect ===
+PROMPT === Setting parallel execution parameters ===
+-- parallel_threads_per_cpu: Increase to 8 for 8+ CPU systems (was 4)
+-- This allows more worker threads to spawn, saturating CPU better.
+ALTER SYSTEM SET parallel_threads_per_cpu = 8 SCOPE=SPFILE;
 PROMPT     Run the following to apply:
 PROMPT       SHUTDOWN IMMEDIATE;
 PROMPT       STARTUP;
