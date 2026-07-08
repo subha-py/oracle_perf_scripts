@@ -4,16 +4,17 @@ SET ECHO ON
 
 DECLARE
   v_payload_seed   VARCHAR2(1000);
-  v_rows_per_chunk NUMBER := 1000000;       -- 1M rows per INSERT (PGA-safe)
+  v_rows_per_chunk NUMBER := 2000000;       -- OPTIMIZED: 2M chunks to reduce commits per partition
   v_part_lo        NUMBER := 16;            -- <-- slice 4
   v_part_hi        NUMBER := 20;            -- <-- slice 4
   v_redo_pre       NUMBER;
   v_redo_post      NUMBER;
   -- NEW: Scaled variables for 1TB layout
   v_rows_per_part  NUMBER := 20000000;      -- 20M rows per partition
-  v_chunks_per_part NUMBER := 20;           -- 20 chunks needed to fill 20M rows
+  v_chunks_per_part NUMBER := 10;           -- OPTIMIZED: 10 chunks (2M rows each) instead of 20
 BEGIN
   EXECUTE IMMEDIATE 'ALTER SESSION ENABLE PARALLEL DML';
+  EXECUTE IMMEDIATE 'ALTER SESSION SET PARALLEL_FORCE_LOCAL = TRUE';
 
   SELECT m.value INTO v_redo_pre FROM v$mystat m, v$statname n
    WHERE m.statistic#=n.statistic# AND n.name='redo size';
@@ -29,11 +30,11 @@ BEGIN
     EXECUTE IMMEDIATE 'ALTER TABLE SYS.BIG_PERF_23 TRUNCATE PARTITION ' || r.partition_name;
     DBMS_OUTPUT.PUT_LINE(TO_CHAR(SYSDATE,'HH24:MI:SS') || ' TRUNCATED ' || r.partition_name);
 
-    -- MODIFIED: Looping 20 times (0 to 19) to generate all 20M rows per partition
-    FOR c_idx IN 0..(v_chunks_per_part - 1) LOOP
+    -- OPTIMIZED: 10 chunks (2M rows each) instead of 20 chunks (1M rows) to reduce commits + PARALLEL(16)
+    FOR c_idx IN 0..9 LOOP
       EXECUTE IMMEDIATE
-        'INSERT /*+ APPEND PARALLEL(8) */ INTO SYS.BIG_PERF_23 PARTITION (' || r.partition_name || ') (id, payload) ' ||
-        'SELECT /*+ PARALLEL(8) */ ' ||
+        'INSERT /*+ APPEND PARALLEL(16) */ INTO SYS.BIG_PERF_23 PARTITION (' || r.partition_name || ') (id, payload) ' ||
+        'SELECT /*+ PARALLEL(16) */ ' ||
         -- MODIFIED: Adjusted multiplier to v_rows_per_part (20000000) for pristine range alignment
         '(((' || (r.partition_position - 1) || ') * ' || v_rows_per_part || ') + (' || (c_idx * v_rows_per_chunk) || ') + ROWNUM - 1), :seed || TO_CHAR(ROWNUM, ''FM00000000'') ' ||
         'FROM dual CONNECT BY level <= :chunk_size'
