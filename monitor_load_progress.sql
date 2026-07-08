@@ -11,6 +11,8 @@ DECLARE
   v_row_count NUMBER;
   v_iteration NUMBER := 0;
   v_start_time TIMESTAMP;
+  v_elapsed_mins NUMBER;
+  v_elapsed_hours NUMBER;
 BEGIN
   v_start_time := SYSDATE;
   
@@ -19,20 +21,22 @@ BEGIN
     
     SELECT COUNT(*) INTO v_row_count FROM BIG_PERF_23;
     
+    v_elapsed_mins := TRUNC((SYSDATE - v_start_time) * 24 * 60);
+    
     DBMS_OUTPUT.PUT_LINE(
       TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') || 
       ' [Iteration ' || v_iteration || '] ' ||
       'Rows: ' || TO_CHAR(v_row_count, '999,999,999,999') ||
-      ' | Elapsed: ' || TRUNC((SYSDATE - v_start_time) * 24 * 60) || ' mins'
+      ' | Elapsed: ' || v_elapsed_mins || ' mins'
     );
     
     -- Exit if 1B rows reached (load complete)
     IF v_row_count >= 1000000000 THEN
+      v_elapsed_hours := TRUNC(v_elapsed_mins / 60);
       DBMS_OUTPUT.PUT_LINE('');
       DBMS_OUTPUT.PUT_LINE('=== LOAD COMPLETE ===');
       DBMS_OUTPUT.PUT_LINE('Total rows: ' || TO_CHAR(v_row_count, '999,999,999,999'));
-      DBMS_OUTPUT.PUT_LINE('Total time: ' || TRUNC((SYSDATE - v_start_time) * 24) || ' hours ' || 
-                          MOD(TRUNC((SYSDATE - v_start_time) * 24 * 60), 60) || ' mins');
+      DBMS_OUTPUT.PUT_LINE('Total time: ' || v_elapsed_hours || ' hours ' || MOD(v_elapsed_mins, 60) || ' mins');
       EXIT;
     END IF;
     
