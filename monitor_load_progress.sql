@@ -36,8 +36,8 @@ BEGIN
       EXIT;
     END IF;
     
-    -- Wait 10 minutes (600 seconds)
-    DBMS_LOCK.SLEEP(600);
+    -- Wait 30 minutes (1800 seconds)
+    DBMS_LOCK.SLEEP(1800);
   END LOOP;
   
 END;
