@@ -1,6 +1,5 @@
--- monitor_load_progress.sql -- Monitor BIG_PERF_23 row count every 10 minutes
--- Run as: nohup sqlplus / as sysdba @monitor_load_progress.sql > /tmp/monitor.log 2>&1 &
--- Or: sqlplus / as sysdba @monitor_load_progress.sql
+-- monitor_load_progress.sql -- Simple row count monitor every 30 minutes
+-- Run as: nohup sqlplus / as sysdba @monitor_load_progress.sql > /home/oracle/monitor.log 2>&1 &
 
 SET SERVEROUTPUT ON
 SET ECHO OFF
@@ -10,40 +9,23 @@ SET FEEDBACK OFF
 DECLARE
   v_row_count NUMBER;
   v_iteration NUMBER := 0;
-  v_start_time NUMBER := SYSDATE;
-  v_current_time NUMBER;
-  v_elapsed_mins NUMBER;
-  v_elapsed_hours NUMBER;
 BEGIN
   LOOP
     v_iteration := v_iteration + 1;
-    v_current_time := SYSDATE;
     
     SELECT COUNT(*) INTO v_row_count FROM BIG_PERF_23;
     
-    v_elapsed_mins := FLOOR((v_current_time - v_start_time) * 24 * 60);
+    DBMS_OUTPUT.PUT_LINE(TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') || ' - Rows: ' || v_row_count);
     
-    DBMS_OUTPUT.PUT_LINE(
-      TO_CHAR(v_current_time, 'YYYY-MM-DD HH24:MI:SS') || 
-      ' [Iteration ' || v_iteration || '] ' ||
-      'Rows: ' || TO_CHAR(v_row_count, '999,999,999,999') ||
-      ' | Elapsed: ' || v_elapsed_mins || ' mins'
-    );
-    
-    -- Exit if 1B rows reached (load complete)
+    -- Exit when 1B rows reached
     IF v_row_count >= 1000000000 THEN
-      v_elapsed_hours := FLOOR(v_elapsed_mins / 60);
-      DBMS_OUTPUT.PUT_LINE('');
-      DBMS_OUTPUT.PUT_LINE('=== LOAD COMPLETE ===');
-      DBMS_OUTPUT.PUT_LINE('Total rows: ' || TO_CHAR(v_row_count, '999,999,999,999'));
-      DBMS_OUTPUT.PUT_LINE('Total time: ' || v_elapsed_hours || ' hours ' || MOD(v_elapsed_mins, 60) || ' mins');
+      DBMS_OUTPUT.PUT_LINE('LOAD COMPLETE - Total rows: ' || v_row_count);
       EXIT;
     END IF;
     
-    -- Wait 30 minutes (1800 seconds)
+    -- Wait 30 minutes
     DBMS_LOCK.SLEEP(1800);
   END LOOP;
-  
 END;
 /
 EXIT;
